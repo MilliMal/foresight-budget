@@ -9,13 +9,14 @@ datasource db {
 }
 
 model User {
-  id           String               @id @default(cuid())
-  name         String
-  email        String               @unique
-  hashedPin    String
-  createdAt    DateTime             @default(now())
+  id                  String               @id @default(cuid())
+  name                String
+  email               String               @unique
+  hashedPin           String
+  createdAt           DateTime             @default(now())
   personalBudgetItems PersonalBudgetItem[]
-  jobs         Job[]
+  jobs                Job[]
+  debts               Debt[]
 }
 
 model PersonalBudgetItem {
@@ -56,28 +57,28 @@ enum BudgetItemType {
 }
 
 model SavingsGoal {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   label        String
   section      String
   totalTarget  Float
-  alreadySaved Float    @default(0)
+  alreadySaved Float     @default(0)
   targetDate   DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 }
 
 model Job {
-  id          String     @id @default(cuid())
+  id          String       @id @default(cuid())
   userId      String
   date        DateTime
   clientName  String?
   workType    String
   grossAmount Float
-  status      JobStatus  @default(PENDING)
+  status      JobStatus    @default(PENDING)
   notes       String?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   expenses    JobExpense[]
 }
 
@@ -93,4 +94,29 @@ model JobExpense {
   label  String
   amount Float
   job    Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+}
+
+model Debt {
+  id          String        @id @default(cuid())
+  userId      String?
+  label       String
+  creditor    String?
+  totalAmount Float
+  amountPaid  Float         @default(0)
+  dueDate     DateTime?
+  notes       String?
+  isShared    Boolean       @default(false)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  user        User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payments    DebtPayment[]
+}
+
+model DebtPayment {
+  id        String   @id @default(cuid())
+  debtId    String
+  amount    Float
+  date      DateTime @default(now())
+  note      String?
+  debt      Debt     @relation(fields: [debtId], references: [id], onDelete: Cascade)
 }

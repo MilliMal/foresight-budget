@@ -46,6 +46,18 @@ export async function GET(req: NextRequest) {
 
   const savingsGoals = await prisma.savingsGoal.findMany();
 
+  // Debts summary
+  const allDebts = await prisma.debt.findMany({ include: { payments: true } });
+  const debtSummary = {
+    totalOwed: allDebts.reduce((s, d) => s + d.totalAmount, 0),
+    totalPaid: allDebts.reduce((s, d) => s + d.amountPaid, 0),
+    count: allDebts.length,
+    cleared: allDebts.filter(d => d.amountPaid >= d.totalAmount).length,
+  };
+
+  // Wedding goal specifically for income calculator
+  const weddingGoal = savingsGoals.find(g => g.section === "wedding");
+
   return NextResponse.json({
     month,
     year,
@@ -53,5 +65,7 @@ export async function GET(req: NextRequest) {
     personal: personalByUser,
     sharedTotal,
     savingsGoals,
+    debtSummary,
+    weddingGoal: weddingGoal ?? null,
   });
 }

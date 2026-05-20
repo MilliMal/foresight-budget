@@ -4,17 +4,27 @@ import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import { formatCurrency, getCurrentMonthYear, monthName } from "@/lib/utils";
+import { formatCurrency, getCurrentMonthYear, monthName, monthsUntil } from "@/lib/utils";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { SkeletonCard } from "@/components/ui/SkeletonCard";
 
+const JARS = [
+  { key: "tithe",    label: "Tithe",    pct: 10, color: "bg-purple-500",  desc: "Give back to God / church" },
+  { key: "giving",   label: "Giving",   pct: 10, color: "bg-pink-500",    desc: "Help others, bless people" },
+  { key: "saving",   label: "Saving",   pct: 10, color: "bg-teal-500",    desc: "Emergency fund & short-term" },
+  { key: "invest",   label: "Investing",pct: 20, color: "bg-amber-500",   desc: "Wedding & future goals" },
+  { key: "spending", label: "Spending", pct: 50, color: "bg-stone-400",   desc: "Living expenses" },
+];
+
+interface SavingsGoal { id: string; label: string; section: string; totalTarget: number; alreadySaved: number; targetDate: string | null; }
 interface DashboardData {
-  month: number;
-  year: number;
+  month: number; year: number;
   income: Array<{ userId: string; name: string; gross: number; expenses: number; net: number; jobCount: number }>;
   personal: Array<{ userId: string; name: string; total: number }>;
   sharedTotal: number;
-  savingsGoals: Array<{ id: string; label: string; section: string; totalTarget: number; alreadySaved: number; targetDate: string | null }>;
+  savingsGoals: SavingsGoal[];
+  debtSummary: { totalOwed: number; totalPaid: number; count: number; cleared: number };
+  weddingGoal: SavingsGoal | null;
 }
 
 export default function DashboardPage() {
@@ -30,11 +40,8 @@ export default function DashboardPage() {
       const res = await fetch(`/api/dashboard?month=${month}&year=${year}`);
       if (!res.ok) throw new Error("Failed to fetch");
       setData(await res.json());
-    } catch {
-      toast.error("Could not load dashboard");
-    } finally {
-      setLoading(false);
-    }
+    } catch { toast.error("Could not load dashboard"); }
+    finally { setLoading(false); }
   }, [month, year]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -42,60 +49,63 @@ export default function DashboardPage() {
   const combinedNet = data?.income.reduce((s, u) => s + u.net, 0) ?? 0;
   const combinedPersonal = data?.personal.reduce((s, u) => s + u.total, 0) ?? 0;
 
+  // Wedding income calculator
+  const wg = data?.weddingGoal;
+  const weddingRemaining = wg ? Math.max(0, wg.totalTarget - wg.alreadySaved) : 0;
+  const weddingMonths = wg?.targetDate ? monthsUntil(new Date(wg.targetDate)) : null;
+  const weddingMonthlyNeeded = weddingMonths && weddingRemaining > 0 ? weddingRemaining / weddingMonths : null;
+  // 10% saving + 20% investing = 30% of income goes to wedding
+  const requiredMonthlyIncome = weddingMonthlyNeeded ? weddingMonthlyNeeded / 0.30 : null;
+  const incomeSurplus = requiredMonthlyIncome ? combinedNet - requiredMonthlyIncome : null;
+
   return (
     <div>
+      {/* Anchor scripture */}
+      <div className="mb-6 rounded-2xl bg-gradient-to-br from-teal-900 via-teal-800 to-teal-700 p-5 text-white relative overflow-hidden">
+        <div className="absolute inset-0 opacity-5 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMjgiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMSIvPjwvc3ZnPg==')]" />
+        <div className="relative">
+          <p className="text-sm font-medium text-teal-300 mb-1 uppercase tracking-widest">Our Anchor</p>
+          <blockquote className="text-lg md:text-xl font-semibold text-white leading-snug mb-2">
+            &ldquo;Now to him who is able to do immeasurably more than all we ask or imagine, according to his power that is at work within us&rdquo;
+          </blockquote>
+          <p className="text-teal-300 font-medium">— Ephesians 3:20</p>
+        </div>
+      </div>
+
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="page-header">Dashboard</h1>
           <p className="page-subheader">{monthName(month)} {year} overview</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => router.push("/jobs")} className="btn-primary text-sm">
-            + Log job
-          </button>
-          <button onClick={() => router.push("/personal")} className="btn-secondary text-sm">
-            + Add expense
-          </button>
+          <button onClick={() => router.push("/jobs")} className="btn-primary text-sm">+ Log job</button>
+          <button onClick={() => router.push("/personal")} className="btn-secondary text-sm">+ Expense</button>
         </div>
       </div>
 
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {[...Array(4)].map((_, i) => <SkeletonCard key={i} />)}
+          {[...Array(6)].map((_, i) => <SkeletonCard key={i} />)}
         </div>
       ) : (
-        <div className="space-y-6">
-          {/* Income summary */}
+        <div className="space-y-5">
+
+          {/* Income by partner */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {data?.income.map((u) => (
+            {data?.income.map(u => (
               <div key={u.userId} className="card">
                 <div className="flex items-center gap-2 mb-3">
-                  <div className="w-8 h-8 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center font-bold text-sm">
-                    {u.name[0]}
-                  </div>
+                  <div className="w-8 h-8 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center font-bold text-sm">{u.name[0]}</div>
                   <h2 className="font-semibold text-stone-800">{u.name}</h2>
-                  {u.userId === session?.user?.id && (
-                    <span className="text-xs bg-teal-50 text-teal-700 px-2 py-0.5 rounded-full">You</span>
-                  )}
+                  {u.userId === session?.user?.id && <span className="text-xs bg-teal-50 text-teal-700 px-2 py-0.5 rounded-full">You</span>}
                 </div>
                 <dl className="space-y-1.5 text-sm">
-                  <div className="flex justify-between">
-                    <dt className="text-stone-500">Jobs this month</dt>
-                    <dd className="font-medium">{u.jobCount}</dd>
-                  </div>
-                  <div className="flex justify-between">
-                    <dt className="text-stone-500">Gross income</dt>
-                    <dd className="font-medium">{formatCurrency(u.gross)}</dd>
-                  </div>
-                  <div className="flex justify-between">
-                    <dt className="text-stone-500">Expenses</dt>
-                    <dd className="font-medium text-red-600">−{formatCurrency(u.expenses)}</dd>
-                  </div>
+                  <div className="flex justify-between"><dt className="text-stone-500">Jobs</dt><dd className="font-medium">{u.jobCount}</dd></div>
+                  <div className="flex justify-between"><dt className="text-stone-500">Gross income</dt><dd className="font-medium">{formatCurrency(u.gross)}</dd></div>
+                  <div className="flex justify-between"><dt className="text-stone-500">Expenses</dt><dd className="font-medium text-red-600">−{formatCurrency(u.expenses)}</dd></div>
                   <div className="flex justify-between pt-1.5 border-t border-stone-100">
                     <dt className="font-semibold text-stone-800">Net income</dt>
-                    <dd className={`font-bold text-base ${u.net >= 0 ? "text-teal-700" : "text-red-600"}`}>
-                      {formatCurrency(u.net)}
-                    </dd>
+                    <dd className={`font-bold text-base ${u.net >= 0 ? "text-teal-700" : "text-red-600"}`}>{formatCurrency(u.net)}</dd>
                   </div>
                 </dl>
               </div>
@@ -106,37 +116,124 @@ export default function DashboardPage() {
           <div className="card bg-gradient-to-r from-teal-700 to-teal-800 text-white">
             <h2 className="font-semibold text-teal-100 mb-4">Combined Summary</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div><p className="text-teal-300 text-xs">Combined net income</p><p className="text-2xl font-bold mt-0.5">{formatCurrency(combinedNet)}</p></div>
+              <div><p className="text-teal-300 text-xs">Personal expenses</p><p className="text-2xl font-bold mt-0.5">{formatCurrency(combinedPersonal)}</p></div>
+              <div><p className="text-teal-300 text-xs">Shared budget</p><p className="text-2xl font-bold mt-0.5">{formatCurrency(data?.sharedTotal ?? 0)}</p></div>
               <div>
-                <p className="text-teal-300 text-xs">Combined net income</p>
-                <p className="text-2xl font-bold mt-0.5">{formatCurrency(combinedNet)}</p>
-              </div>
-              <div>
-                <p className="text-teal-300 text-xs">Personal expenses</p>
-                <p className="text-2xl font-bold mt-0.5">{formatCurrency(combinedPersonal)}</p>
-              </div>
-              <div>
-                <p className="text-teal-300 text-xs">Shared budget total</p>
-                <p className="text-2xl font-bold mt-0.5">{formatCurrency(data?.sharedTotal ?? 0)}</p>
-              </div>
-              <div>
-                <p className="text-teal-300 text-xs">Balance after personal</p>
-                <p className={`text-2xl font-bold mt-0.5 ${combinedNet - combinedPersonal >= 0 ? "text-white" : "text-red-300"}`}>
-                  {formatCurrency(combinedNet - combinedPersonal)}
-                </p>
+                <p className="text-teal-300 text-xs">After personal</p>
+                <p className={`text-2xl font-bold mt-0.5 ${combinedNet - combinedPersonal >= 0 ? "text-white" : "text-red-300"}`}>{formatCurrency(combinedNet - combinedPersonal)}</p>
               </div>
             </div>
           </div>
 
-          {/* Personal totals side by side */}
+          {/* 5 Jars allocation */}
+          {combinedNet > 0 && (
+            <div className="card">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-xl">🫙</span>
+                <h2 className="font-semibold text-stone-800">5 Jars Allocation</h2>
+              </div>
+              <p className="text-xs text-stone-400 mb-4">How your {formatCurrency(combinedNet)} combined net income should be divided this month</p>
+              <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
+                {JARS.map(jar => {
+                  const amount = (combinedNet * jar.pct) / 100;
+                  return (
+                    <div key={jar.key} className="text-center p-3 bg-stone-50 rounded-xl border border-stone-100">
+                      <div className={`w-10 h-10 rounded-full ${jar.color} mx-auto mb-2 flex items-center justify-center text-white font-bold text-sm`}>{jar.pct}%</div>
+                      <p className="font-semibold text-stone-800 text-sm">{jar.label}</p>
+                      <p className="text-teal-700 font-bold mt-0.5">{formatCurrency(amount)}</p>
+                      <p className="text-xs text-stone-400 mt-1 leading-tight">{jar.desc}</p>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="mt-3 p-3 bg-amber-50 rounded-lg border border-amber-100">
+                <p className="text-xs text-amber-800">
+                  <strong>Wedding strategy:</strong> Your Saving (10%) + Investing (20%) jars = <strong>{formatCurrency(combinedNet * 0.30)}/month</strong> toward your wedding. That&apos;s 30% of every dollar you earn working toward your big day.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Required monthly income calculator */}
+          {weddingMonthlyNeeded && (
+            <div className={`card border-2 ${incomeSurplus !== null && incomeSurplus >= 0 ? "border-teal-200 bg-teal-50" : "border-amber-200 bg-amber-50"}`}>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-xl">💍</span>
+                <h2 className="font-semibold text-stone-800">Wedding Income Target</h2>
+                {wg?.targetDate && (
+                  <span className="text-xs text-stone-500 ml-auto">{weddingMonths} month{weddingMonths !== 1 ? "s" : ""} to go</span>
+                )}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+                <div className="bg-white rounded-lg p-3">
+                  <p className="text-stone-400 text-xs">Wedding remaining</p>
+                  <p className="font-bold text-stone-900 text-lg mt-0.5">{formatCurrency(weddingRemaining)}</p>
+                </div>
+                <div className="bg-white rounded-lg p-3">
+                  <p className="text-stone-400 text-xs">Monthly savings needed</p>
+                  <p className="font-bold text-amber-600 text-lg mt-0.5">{formatCurrency(weddingMonthlyNeeded)}</p>
+                  <p className="text-xs text-stone-400">(30% of required income)</p>
+                </div>
+                <div className={`rounded-lg p-3 ${incomeSurplus !== null && incomeSurplus >= 0 ? "bg-teal-100" : "bg-red-50"}`}>
+                  <p className="text-stone-400 text-xs">Required combined income</p>
+                  <p className={`font-bold text-lg mt-0.5 ${incomeSurplus !== null && incomeSurplus >= 0 ? "text-teal-800" : "text-red-600"}`}>{formatCurrency(requiredMonthlyIncome!)}</p>
+                  {incomeSurplus !== null && (
+                    <p className={`text-xs mt-0.5 font-medium ${incomeSurplus >= 0 ? "text-teal-700" : "text-red-600"}`}>
+                      {incomeSurplus >= 0 ? `✓ You're ${formatCurrency(incomeSurplus)} above target` : `↑ ${formatCurrency(Math.abs(incomeSurplus))} gap to close`}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Savings progress */}
+          <div className="card">
+            <h2 className="font-semibold text-stone-800 mb-4">Savings Progress</h2>
+            {!data?.savingsGoals.length ? (
+              <p className="text-stone-400 text-sm">No savings goals yet.</p>
+            ) : (
+              <div className="space-y-4">
+                {data.savingsGoals.map(g => (
+                  <div key={g.id}>
+                    <div className="flex justify-between text-sm mb-1.5">
+                      <span className="font-medium text-stone-700">{g.label}</span>
+                      <span className="text-stone-500">{formatCurrency(g.alreadySaved)} / {formatCurrency(g.totalTarget)}</span>
+                    </div>
+                    <ProgressBar value={g.alreadySaved} max={g.totalTarget} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Debt snapshot */}
+          {data?.debtSummary && data.debtSummary.count > 0 && (
+            <div className="card cursor-pointer hover:border-stone-200 transition-colors border border-stone-100" onClick={() => router.push("/debts")}>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="font-semibold text-stone-800">Debt Snapshot</h2>
+                <span className="text-xs text-teal-700 font-medium">View all →</span>
+              </div>
+              <div className="grid grid-cols-3 gap-3 text-sm">
+                <div><p className="text-stone-400 text-xs">Total owed</p><p className="font-bold text-red-600">{formatCurrency(data.debtSummary.totalOwed)}</p></div>
+                <div><p className="text-stone-400 text-xs">Paid off</p><p className="font-bold text-teal-700">{formatCurrency(data.debtSummary.totalPaid)}</p></div>
+                <div><p className="text-stone-400 text-xs">Cleared</p><p className="font-bold text-stone-900">{data.debtSummary.cleared}/{data.debtSummary.count}</p></div>
+              </div>
+              <div className="mt-3">
+                <ProgressBar value={data.debtSummary.totalPaid} max={data.debtSummary.totalOwed} />
+              </div>
+            </div>
+          )}
+
+          {/* Personal totals */}
           <div className="card">
             <h2 className="font-semibold text-stone-800 mb-3">Personal Budget Totals</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {data?.personal.map((u) => (
+              {data?.personal.map(u => (
                 <div key={u.userId} className="flex items-center justify-between p-3 bg-stone-50 rounded-lg">
                   <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-xs">
-                      {u.name[0]}
-                    </div>
+                    <div className="w-7 h-7 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-xs">{u.name[0]}</div>
                     <span className="text-sm font-medium text-stone-700">{u.name}</span>
                   </div>
                   <span className="font-semibold text-stone-900">{formatCurrency(u.total)}</span>
@@ -145,27 +242,6 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Savings progress */}
-          <div className="card">
-            <h2 className="font-semibold text-stone-800 mb-4">Savings Progress</h2>
-            {data?.savingsGoals.length === 0 ? (
-              <p className="text-stone-400 text-sm">No savings goals yet. Add one in the Savings Calculator.</p>
-            ) : (
-              <div className="space-y-5">
-                {data?.savingsGoals.map((g) => (
-                  <div key={g.id}>
-                    <div className="flex justify-between text-sm mb-1.5">
-                      <span className="font-medium text-stone-700">{g.label}</span>
-                      <span className="text-stone-500">
-                        {formatCurrency(g.alreadySaved)} / {formatCurrency(g.totalTarget)}
-                      </span>
-                    </div>
-                    <ProgressBar value={g.alreadySaved} max={g.totalTarget} />
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
       )}
     </div>
