@@ -64,7 +64,7 @@ export async function GET(req: NextRequest) {
 
   const savingsGoals = await prisma.savingsGoal.findMany();
 
-  // Debts summary
+  // Debts summary + this month's payments
   const allDebts = await prisma.debt.findMany({ include: { payments: true } });
   const debtSummary = {
     totalOwed: allDebts.reduce((s, d) => s + d.totalAmount, 0),
@@ -72,6 +72,24 @@ export async function GET(req: NextRequest) {
     count: allDebts.length,
     cleared: allDebts.filter(d => d.amountPaid >= d.totalAmount).length,
   };
+
+  // Debt payments made this month, per user and shared
+  const monthlyDebtPayments = await prisma.debtPayment.findMany({
+    where: { date: { gte: start, lte: end } },
+    include: { debt: true },
+  });
+
+  const debtPaymentsByUser = await Promise.all(
+    users.map(async (u) => {
+      const personal = monthlyDebtPayments
+        .filter(p => p.debt.userId === u.id && !p.debt.isShared)
+        .reduce((s, p) => s + p.amount, 0);
+      return { userId: u.id, name: u.name, debtPayments: personal };
+    })
+  );
+  const sharedDebtPaymentsThisMonth = monthlyDebtPayments
+    .filter(p => p.debt.isShared)
+    .reduce((s, p) => s + p.amount, 0);
 
   // Wedding goal specifically for income calculator
   const weddingGoal = savingsGoals.find(g => g.section === "wedding");
@@ -85,6 +103,8 @@ export async function GET(req: NextRequest) {
     sharedBySection,
     savingsGoals,
     debtSummary,
+    debtPaymentsByUser,
+    sharedDebtPaymentsThisMonth,
     weddingGoal: weddingGoal ?? null,
   });
 }

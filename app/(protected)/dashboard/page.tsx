@@ -30,6 +30,8 @@ interface DashboardData {
   sharedBySection: SharedBySection;
   savingsGoals: SavingsGoal[];
   debtSummary: { totalOwed: number; totalPaid: number; count: number; cleared: number };
+  debtPaymentsByUser: Array<{ userId: string; name: string; debtPayments: number }>;
+  sharedDebtPaymentsThisMonth: number;
   weddingGoal: SavingsGoal | null;
 }
 
@@ -54,6 +56,8 @@ export default function DashboardPage() {
 
   const combinedNet = data?.income.reduce((s, u) => s + u.net, 0) ?? 0;
   const combinedPersonal = data?.personal.reduce((s, u) => s + u.total, 0) ?? 0;
+  const combinedDebtPayments = (data?.debtPaymentsByUser.reduce((s, u) => s + u.debtPayments, 0) ?? 0) + (data?.sharedDebtPaymentsThisMonth ?? 0);
+  const totalMonthlyExpenses = combinedPersonal + combinedDebtPayments;
 
   // Wedding income calculator
   const wg = data?.weddingGoal;
@@ -122,12 +126,29 @@ export default function DashboardPage() {
           <div className="card bg-gradient-to-r from-teal-700 to-teal-800 text-white">
             <h2 className="font-semibold text-teal-100 mb-4">Combined Summary — {monthName(month)}</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-              <div><p className="text-teal-300 text-xs">Combined net income</p><p className="text-2xl font-bold mt-0.5">{formatCurrency(combinedNet)}</p></div>
-              <div><p className="text-teal-300 text-xs">Personal expenses</p><p className="text-2xl font-bold mt-0.5">{formatCurrency(combinedPersonal)}</p></div>
-              <div><p className="text-teal-300 text-xs">All shared costs</p><p className="text-2xl font-bold mt-0.5">{formatCurrency(data?.sharedTotal ?? 0)}</p></div>
               <div>
-                <p className="text-teal-300 text-xs">After personal expenses</p>
-                <p className={`text-2xl font-bold mt-0.5 ${combinedNet - combinedPersonal >= 0 ? "text-white" : "text-red-300"}`}>{formatCurrency(combinedNet - combinedPersonal)}</p>
+                <p className="text-teal-300 text-xs">Combined net income</p>
+                <p className="text-2xl font-bold mt-0.5">{formatCurrency(combinedNet)}</p>
+              </div>
+              <div>
+                <p className="text-teal-300 text-xs">Monthly expenses</p>
+                <p className="text-2xl font-bold mt-0.5">{formatCurrency(totalMonthlyExpenses)}</p>
+                <div className="mt-1 space-y-0.5">
+                  <p className="text-teal-400 text-xs">Personal: {formatCurrency(combinedPersonal)}</p>
+                  {combinedDebtPayments > 0 && (
+                    <p className="text-teal-400 text-xs">Debt payments: {formatCurrency(combinedDebtPayments)}</p>
+                  )}
+                </div>
+              </div>
+              <div>
+                <p className="text-teal-300 text-xs">All shared costs</p>
+                <p className="text-2xl font-bold mt-0.5">{formatCurrency(data?.sharedTotal ?? 0)}</p>
+              </div>
+              <div>
+                <p className="text-teal-300 text-xs">Left after expenses</p>
+                <p className={`text-2xl font-bold mt-0.5 ${combinedNet - totalMonthlyExpenses >= 0 ? "text-white" : "text-red-300"}`}>
+                  {formatCurrency(combinedNet - totalMonthlyExpenses)}
+                </p>
               </div>
             </div>
           </div>
@@ -138,25 +159,47 @@ export default function DashboardPage() {
               <h2 className="font-semibold text-stone-800 mb-4">Costs by Category</h2>
               <div className="space-y-3">
 
-                {/* Personal */}
+                {/* Personal + debt payments */}
                 <div className="rounded-xl border border-stone-100 overflow-hidden">
-                  <button onClick={() => router.push("/personal")} className="w-full flex items-center justify-between px-4 py-3 bg-stone-50 hover:bg-stone-100 transition-colors text-left">
+                  <div className="flex items-center justify-between px-4 py-3 bg-stone-50">
                     <div className="flex items-center gap-2">
                       <span className="text-base">👤</span>
-                      <span className="font-medium text-stone-700">Personal expenses</span>
+                      <span className="font-medium text-stone-700">Monthly expenses</span>
                       <span className="text-xs text-stone-400">{monthName(month)}</span>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="font-bold text-stone-900">{formatCurrency(combinedPersonal)}</span>
-                      <span className="text-stone-400 text-xs">→</span>
+                    <span className="font-bold text-stone-900">{formatCurrency(totalMonthlyExpenses)}</span>
+                  </div>
+                  {(data.personal ?? []).map(u => {
+                    const debtRow = data.debtPaymentsByUser?.find(d => d.userId === u.userId);
+                    const debtAmt = debtRow?.debtPayments ?? 0;
+                    const userTotal = u.total + debtAmt;
+                    return (
+                      <div key={u.userId} className="border-t border-stone-50">
+                        <div className="flex justify-between items-center px-4 py-2 text-sm">
+                          <span className="text-stone-600 font-medium pl-2">{u.name}</span>
+                          <span className="font-semibold text-stone-800">{formatCurrency(userTotal)}</span>
+                        </div>
+                        <div className="flex justify-between items-center px-4 pb-1.5 text-xs text-stone-400">
+                          <span className="pl-2">Personal spending</span>
+                          <span>{formatCurrency(u.total)}</span>
+                        </div>
+                        {debtAmt > 0 && (
+                          <div className="flex justify-between items-center px-4 pb-2 text-xs text-red-400">
+                            <button onClick={() => router.push("/debts")} className="pl-2 hover:text-red-600 transition-colors">Debt payments →</button>
+                            <span>{formatCurrency(debtAmt)}</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {data.sharedDebtPaymentsThisMonth > 0 && (
+                    <div className="border-t border-stone-50">
+                      <div className="flex justify-between items-center px-4 py-2 text-xs text-red-400">
+                        <button onClick={() => router.push("/debts")} className="pl-2 hover:text-red-600 transition-colors">Shared debt payments →</button>
+                        <span>{formatCurrency(data.sharedDebtPaymentsThisMonth)}</span>
+                      </div>
                     </div>
-                  </button>
-                  {(data.personal ?? []).map(u => (
-                    <div key={u.userId} className="flex justify-between items-center px-4 py-2 border-t border-stone-50 text-sm">
-                      <span className="text-stone-500 pl-6">{u.name}</span>
-                      <span className="font-medium text-stone-700">{formatCurrency(u.total)}</span>
-                    </div>
-                  ))}
+                  )}
                 </div>
 
                 {/* Wedding */}
