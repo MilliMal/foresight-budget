@@ -17,11 +17,17 @@ const JARS = [
 ];
 
 interface SavingsGoal { id: string; label: string; section: string; totalTarget: number; alreadySaved: number; targetDate: string | null; }
+interface SharedBySection {
+  wedding: number; weddingOneTime: number; weddingMonthly: number;
+  son: number; sonOneTime: number; sonMonthly: number;
+  relocation: number; relocationOneTime: number; relocationMonthly: number;
+}
 interface DashboardData {
   month: number; year: number;
   income: Array<{ userId: string; name: string; gross: number; expenses: number; net: number; jobCount: number }>;
   personal: Array<{ userId: string; name: string; total: number }>;
   sharedTotal: number;
+  sharedBySection: SharedBySection;
   savingsGoals: SavingsGoal[];
   debtSummary: { totalOwed: number; totalPaid: number; count: number; cleared: number };
   weddingGoal: SavingsGoal | null;
@@ -112,19 +118,133 @@ export default function DashboardPage() {
             ))}
           </div>
 
-          {/* Combined summary */}
+          {/* Combined income vs costs overview */}
           <div className="card bg-gradient-to-r from-teal-700 to-teal-800 text-white">
-            <h2 className="font-semibold text-teal-100 mb-4">Combined Summary</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <h2 className="font-semibold text-teal-100 mb-4">Combined Summary — {monthName(month)}</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
               <div><p className="text-teal-300 text-xs">Combined net income</p><p className="text-2xl font-bold mt-0.5">{formatCurrency(combinedNet)}</p></div>
               <div><p className="text-teal-300 text-xs">Personal expenses</p><p className="text-2xl font-bold mt-0.5">{formatCurrency(combinedPersonal)}</p></div>
-              <div><p className="text-teal-300 text-xs">Shared budget</p><p className="text-2xl font-bold mt-0.5">{formatCurrency(data?.sharedTotal ?? 0)}</p></div>
+              <div><p className="text-teal-300 text-xs">All shared costs</p><p className="text-2xl font-bold mt-0.5">{formatCurrency(data?.sharedTotal ?? 0)}</p></div>
               <div>
-                <p className="text-teal-300 text-xs">After personal</p>
+                <p className="text-teal-300 text-xs">After personal expenses</p>
                 <p className={`text-2xl font-bold mt-0.5 ${combinedNet - combinedPersonal >= 0 ? "text-white" : "text-red-300"}`}>{formatCurrency(combinedNet - combinedPersonal)}</p>
               </div>
             </div>
           </div>
+
+          {/* Costs breakdown by page/section */}
+          {data?.sharedBySection && (
+            <div className="card">
+              <h2 className="font-semibold text-stone-800 mb-4">Costs by Category</h2>
+              <div className="space-y-3">
+
+                {/* Personal */}
+                <div className="rounded-xl border border-stone-100 overflow-hidden">
+                  <button onClick={() => router.push("/personal")} className="w-full flex items-center justify-between px-4 py-3 bg-stone-50 hover:bg-stone-100 transition-colors text-left">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">👤</span>
+                      <span className="font-medium text-stone-700">Personal expenses</span>
+                      <span className="text-xs text-stone-400">{monthName(month)}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="font-bold text-stone-900">{formatCurrency(combinedPersonal)}</span>
+                      <span className="text-stone-400 text-xs">→</span>
+                    </div>
+                  </button>
+                  {(data.personal ?? []).map(u => (
+                    <div key={u.userId} className="flex justify-between items-center px-4 py-2 border-t border-stone-50 text-sm">
+                      <span className="text-stone-500 pl-6">{u.name}</span>
+                      <span className="font-medium text-stone-700">{formatCurrency(u.total)}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Wedding */}
+                <div className="rounded-xl border border-stone-100 overflow-hidden">
+                  <button onClick={() => router.push("/wedding")} className="w-full flex items-center justify-between px-4 py-3 bg-stone-50 hover:bg-stone-100 transition-colors text-left">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">💍</span>
+                      <span className="font-medium text-stone-700">Wedding budget</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="font-bold text-stone-900">{formatCurrency(data.sharedBySection.wedding)}</span>
+                      <span className="text-stone-400 text-xs">→</span>
+                    </div>
+                  </button>
+                  {data.sharedBySection.wedding > 0 && (
+                    <div className="grid grid-cols-2 divide-x divide-stone-50 border-t border-stone-50">
+                      <div className="px-4 py-2 text-sm">
+                        <span className="text-stone-400 text-xs block">One-time costs</span>
+                        <span className="font-medium text-stone-700">{formatCurrency(data.sharedBySection.weddingOneTime)}</span>
+                      </div>
+                      <div className="px-4 py-2 text-sm">
+                        <span className="text-stone-400 text-xs block">Monthly recurring</span>
+                        <span className="font-medium text-amber-600">{formatCurrency(data.sharedBySection.weddingMonthly)}/mo</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Son */}
+                <div className="rounded-xl border border-stone-100 overflow-hidden">
+                  <button onClick={() => router.push("/son")} className="w-full flex items-center justify-between px-4 py-3 bg-stone-50 hover:bg-stone-100 transition-colors text-left">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">✈️</span>
+                      <span className="font-medium text-stone-700">Son&apos;s relocation</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="font-bold text-stone-900">{formatCurrency(data.sharedBySection.son)}</span>
+                      <span className="text-stone-400 text-xs">→</span>
+                    </div>
+                  </button>
+                  {data.sharedBySection.son > 0 && (
+                    <div className="grid grid-cols-2 divide-x divide-stone-50 border-t border-stone-50">
+                      <div className="px-4 py-2 text-sm">
+                        <span className="text-stone-400 text-xs block">One-time costs</span>
+                        <span className="font-medium text-stone-700">{formatCurrency(data.sharedBySection.sonOneTime)}</span>
+                      </div>
+                      <div className="px-4 py-2 text-sm">
+                        <span className="text-stone-400 text-xs block">Monthly recurring</span>
+                        <span className="font-medium text-amber-600">{formatCurrency(data.sharedBySection.sonMonthly)}/mo</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Relocation */}
+                <div className="rounded-xl border border-stone-100 overflow-hidden">
+                  <button onClick={() => router.push("/relocation")} className="w-full flex items-center justify-between px-4 py-3 bg-stone-50 hover:bg-stone-100 transition-colors text-left">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">🏡</span>
+                      <span className="font-medium text-stone-700">New home / relocation</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="font-bold text-stone-900">{formatCurrency(data.sharedBySection.relocation)}</span>
+                      <span className="text-stone-400 text-xs">→</span>
+                    </div>
+                  </button>
+                  {data.sharedBySection.relocation > 0 && (
+                    <div className="grid grid-cols-2 divide-x divide-stone-50 border-t border-stone-50">
+                      <div className="px-4 py-2 text-sm">
+                        <span className="text-stone-400 text-xs block">Setup / one-time</span>
+                        <span className="font-medium text-stone-700">{formatCurrency(data.sharedBySection.relocationOneTime)}</span>
+                      </div>
+                      <div className="px-4 py-2 text-sm">
+                        <span className="text-stone-400 text-xs block">Monthly recurring</span>
+                        <span className="font-medium text-amber-600">{formatCurrency(data.sharedBySection.relocationMonthly)}/mo</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Grand total row */}
+                <div className="flex items-center justify-between px-4 py-3 bg-stone-900 rounded-xl text-white">
+                  <span className="font-semibold text-sm">Total costs tracked</span>
+                  <span className="font-bold text-lg">{formatCurrency(combinedPersonal + (data?.sharedTotal ?? 0))}</span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* 5 Jars allocation */}
           {combinedNet > 0 && (
@@ -226,21 +346,6 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* Personal totals */}
-          <div className="card">
-            <h2 className="font-semibold text-stone-800 mb-3">Personal Budget Totals</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {data?.personal.map(u => (
-                <div key={u.userId} className="flex items-center justify-between p-3 bg-stone-50 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-xs">{u.name[0]}</div>
-                    <span className="text-sm font-medium text-stone-700">{u.name}</span>
-                  </div>
-                  <span className="font-semibold text-stone-900">{formatCurrency(u.total)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
 
         </div>
       )}

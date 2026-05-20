@@ -42,7 +42,25 @@ export async function GET(req: NextRequest) {
   );
 
   const sharedItems = await prisma.sharedBudgetItem.findMany();
-  const sharedTotal = sharedItems.reduce((s, i) => s + i.amount, 0);
+
+  const sharedBySection = {
+    wedding: sharedItems
+      .filter(i => ["WEDDING_TRADITIONAL", "WEDDING_CIVIL", "WEDDING_TRANSPORT"].includes(i.section))
+      .reduce((s, i) => s + i.amount, 0),
+    weddingOneTime: sharedItems
+      .filter(i => ["WEDDING_TRADITIONAL", "WEDDING_CIVIL", "WEDDING_TRANSPORT"].includes(i.section) && i.type === "ONE_TIME")
+      .reduce((s, i) => s + i.amount, 0),
+    weddingMonthly: sharedItems
+      .filter(i => ["WEDDING_TRADITIONAL", "WEDDING_CIVIL", "WEDDING_TRANSPORT"].includes(i.section) && i.type === "MONTHLY")
+      .reduce((s, i) => s + i.amount, 0),
+    son: sharedItems.filter(i => i.section === "SON").reduce((s, i) => s + i.amount, 0),
+    sonOneTime: sharedItems.filter(i => i.section === "SON" && i.type === "ONE_TIME").reduce((s, i) => s + i.amount, 0),
+    sonMonthly: sharedItems.filter(i => i.section === "SON" && i.type === "MONTHLY").reduce((s, i) => s + i.amount, 0),
+    relocation: sharedItems.filter(i => i.section === "RELOCATION").reduce((s, i) => s + i.amount, 0),
+    relocationOneTime: sharedItems.filter(i => i.section === "RELOCATION" && i.type === "ONE_TIME").reduce((s, i) => s + i.amount, 0),
+    relocationMonthly: sharedItems.filter(i => i.section === "RELOCATION" && i.type === "MONTHLY").reduce((s, i) => s + i.amount, 0),
+  };
+  const sharedTotal = sharedBySection.wedding + sharedBySection.son + sharedBySection.relocation;
 
   const savingsGoals = await prisma.savingsGoal.findMany();
 
@@ -64,6 +82,7 @@ export async function GET(req: NextRequest) {
     income: jobsByUser,
     personal: personalByUser,
     sharedTotal,
+    sharedBySection,
     savingsGoals,
     debtSummary,
     weddingGoal: weddingGoal ?? null,
