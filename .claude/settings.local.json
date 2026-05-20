@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\STUDENT\\\\Desktop\\\\budget_app\" -ErrorAction SilentlyContinue; if \\(-not \\(Test-Path \"C:\\\\Users\\\\STUDENT\\\\Desktop\\\\budget_app\"\\)\\) { New-Item -ItemType Directory -Path \"C:\\\\Users\\\\STUDENT\\\\Desktop\\\\budget_app\" -Force })"
+    ]
+  }
+}

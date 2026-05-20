@@ -1,0 +1,96 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id           String               @id @default(cuid())
+  name         String
+  email        String               @unique
+  hashedPin    String
+  createdAt    DateTime             @default(now())
+  personalBudgetItems PersonalBudgetItem[]
+  jobs         Job[]
+}
+
+model PersonalBudgetItem {
+  id        String   @id @default(cuid())
+  userId    String
+  category  String
+  label     String
+  amount    Float
+  month     Int
+  year      Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SharedBudgetItem {
+  id        String              @id @default(cuid())
+  section   SharedBudgetSection
+  label     String
+  amount    Float
+  type      BudgetItemType      @default(ONE_TIME)
+  notes     String?
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+}
+
+enum SharedBudgetSection {
+  WEDDING_TRADITIONAL
+  WEDDING_CIVIL
+  WEDDING_TRANSPORT
+  SON
+  RELOCATION
+}
+
+enum BudgetItemType {
+  ONE_TIME
+  MONTHLY
+}
+
+model SavingsGoal {
+  id           String   @id @default(cuid())
+  label        String
+  section      String
+  totalTarget  Float
+  alreadySaved Float    @default(0)
+  targetDate   DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Job {
+  id          String     @id @default(cuid())
+  userId      String
+  date        DateTime
+  clientName  String?
+  workType    String
+  grossAmount Float
+  status      JobStatus  @default(PENDING)
+  notes       String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expenses    JobExpense[]
+}
+
+enum JobStatus {
+  PAID
+  PENDING
+  PARTIAL
+}
+
+model JobExpense {
+  id     String @id @default(cuid())
+  jobId  String
+  label  String
+  amount Float
+  job    Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+}
