@@ -30,8 +30,12 @@ interface DashboardData {
   sharedBySection: SharedBySection;
   savingsGoals: SavingsGoal[];
   debtSummary: { totalOwed: number; totalPaid: number; count: number; cleared: number };
-  debtPaymentsByUser: Array<{ userId: string; name: string; debtPayments: number }>;
+  debtPaymentsByUser: Array<{
+    userId: string; name: string; debtPayments: number;
+    debtLines: Array<{ id: string; label: string; remaining: number; monthlyAmount: number; dueDate: string }>;
+  }>;
   sharedDebtPaymentsThisMonth: number;
+  sharedDebtLines: Array<{ id: string; label: string; remaining: number; monthlyAmount: number; dueDate: string }>;
   weddingGoal: SavingsGoal | null;
 }
 
@@ -159,7 +163,7 @@ export default function DashboardPage() {
               <h2 className="font-semibold text-stone-800 mb-4">Costs by Category</h2>
               <div className="space-y-3">
 
-                {/* Personal + debt payments */}
+                {/* Monthly expenses = personal spending + scheduled debt repayments */}
                 <div className="rounded-xl border border-stone-100 overflow-hidden">
                   <div className="flex items-center justify-between px-4 py-3 bg-stone-50">
                     <div className="flex items-center gap-2">
@@ -169,35 +173,59 @@ export default function DashboardPage() {
                     </div>
                     <span className="font-bold text-stone-900">{formatCurrency(totalMonthlyExpenses)}</span>
                   </div>
+
                   {(data.personal ?? []).map(u => {
                     const debtRow = data.debtPaymentsByUser?.find(d => d.userId === u.userId);
                     const debtAmt = debtRow?.debtPayments ?? 0;
                     const userTotal = u.total + debtAmt;
                     return (
-                      <div key={u.userId} className="border-t border-stone-50">
-                        <div className="flex justify-between items-center px-4 py-2 text-sm">
-                          <span className="text-stone-600 font-medium pl-2">{u.name}</span>
-                          <span className="font-semibold text-stone-800">{formatCurrency(userTotal)}</span>
+                      <div key={u.userId} className="border-t border-stone-100">
+                        {/* Per-person header */}
+                        <div className="flex justify-between items-center px-4 pt-3 pb-1 text-sm">
+                          <span className="font-semibold text-stone-700">{u.name}</span>
+                          <span className="font-bold text-stone-900">{formatCurrency(userTotal)}</span>
                         </div>
-                        <div className="flex justify-between items-center px-4 pb-1.5 text-xs text-stone-400">
-                          <span className="pl-2">Personal spending</span>
-                          <span>{formatCurrency(u.total)}</span>
+                        {/* Personal spending line */}
+                        <div className="flex justify-between items-center px-4 py-1 text-sm">
+                          <button onClick={() => router.push("/personal")} className="flex items-center gap-2 text-stone-500 hover:text-teal-700 transition-colors">
+                            <span className="w-1.5 h-1.5 rounded-full bg-stone-300 inline-block" />
+                            Personal spending
+                          </button>
+                          <span className="text-stone-600">{formatCurrency(u.total)}</span>
                         </div>
-                        {debtAmt > 0 && (
-                          <div className="flex justify-between items-center px-4 pb-2 text-xs text-red-400">
-                            <button onClick={() => router.push("/debts")} className="pl-2 hover:text-red-600 transition-colors">Debt payments →</button>
-                            <span>{formatCurrency(debtAmt)}</span>
+                        {/* One line per debt */}
+                        {(debtRow?.debtLines ?? []).map(dl => (
+                          <div key={dl.id} className="flex justify-between items-center px-4 py-1 text-sm">
+                            <button onClick={() => router.push("/debts")} className="flex items-center gap-2 text-red-500 hover:text-red-700 transition-colors">
+                              <span className="w-1.5 h-1.5 rounded-full bg-red-300 inline-block" />
+                              {dl.label}
+                              <span className="text-xs text-stone-400">/ {Math.round((new Date(dl.dueDate).getFullYear() - new Date().getFullYear()) * 12 + (new Date(dl.dueDate).getMonth() - new Date().getMonth()))}mo</span>
+                            </button>
+                            <span className="text-red-600 font-medium">{formatCurrency(dl.monthlyAmount)}</span>
                           </div>
-                        )}
+                        ))}
+                        <div className="pb-2" />
                       </div>
                     );
                   })}
+
+                  {/* Shared debt repayments */}
                   {data.sharedDebtPaymentsThisMonth > 0 && (
-                    <div className="border-t border-stone-50">
-                      <div className="flex justify-between items-center px-4 py-2 text-xs text-red-400">
-                        <button onClick={() => router.push("/debts")} className="pl-2 hover:text-red-600 transition-colors">Shared debt payments →</button>
-                        <span>{formatCurrency(data.sharedDebtPaymentsThisMonth)}</span>
+                    <div className="border-t border-stone-100 pt-2 pb-2">
+                      <div className="flex justify-between items-center px-4 py-1 text-sm font-semibold text-stone-700">
+                        <span>Shared</span>
+                        <span className="text-stone-900">{formatCurrency(data.sharedDebtPaymentsThisMonth)}</span>
                       </div>
+                      {(data.sharedDebtLines ?? []).map(dl => (
+                        <div key={dl.id} className="flex justify-between items-center px-4 py-1 text-sm">
+                          <button onClick={() => router.push("/debts")} className="flex items-center gap-2 text-red-500 hover:text-red-700 transition-colors">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-300 inline-block" />
+                            {dl.label}
+                            <span className="text-xs text-stone-400">/ {Math.round((new Date(dl.dueDate).getFullYear() - new Date().getFullYear()) * 12 + (new Date(dl.dueDate).getMonth() - new Date().getMonth()))}mo</span>
+                          </button>
+                          <span className="text-red-600 font-medium">{formatCurrency(dl.monthlyAmount)}</span>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>

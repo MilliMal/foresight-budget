@@ -64,8 +64,8 @@ export async function GET(req: NextRequest) {
 
   const savingsGoals = await prisma.savingsGoal.findMany();
 
-  // Debts summary + this month's payments
-  const allDebts = await prisma.debt.findMany({ include: { payments: true } });
+  // Debts — summary + required monthly repayments based on due dates
+  const allDebts = await prisma.debt.findMany();
   const debtSummary = {
     totalOwed: allDebts.reduce((s, d) => s + d.totalAmount, 0),
     totalPaid: allDebts.reduce((s, d) => s + d.amountPaid, 0),
@@ -73,23 +73,53 @@ export async function GET(req: NextRequest) {
     cleared: allDebts.filter(d => d.amountPaid >= d.totalAmount).length,
   };
 
-  // Debt payments made this month, per user and shared
-  const monthlyDebtPayments = await prisma.debtPayment.findMany({
-    where: { date: { gte: start, lte: end } },
-    include: { debt: true },
+  const now = new Date();
+
+  function monthsUntilDate(date: Date): number {
+    const months =
+      (date.getFullYear() - now.getFullYear()) * 12 +
+      (date.getMonth() - now.getMonth());
+    return Math.max(1, months);
+  }
+
+  function requiredMonthlyRepayment(debt: { totalAmount: number; amountPaid: number; dueDate: Date | null }): number {
+    const remaining = debt.totalAmount - debt.amountPaid;
+    if (remaining <= 0) return 0;
+    if (!debt.dueDate) return 0; // no due date = no scheduled repayment
+    return remaining / monthsUntilDate(debt.dueDate);
+  }
+
+  const activeDebts = allDebts.filter(d => d.amountPaid < d.totalAmount);
+
+  const debtPaymentsByUser = users.map(u => {
+    const userDebts = activeDebts.filter(d => d.userId === u.id && !d.isShared);
+    const monthlyRepayment = userDebts.reduce((s, d) => s + requiredMonthlyRepayment(d), 0);
+    const debtLines = userDebts
+      .filter(d => d.dueDate && (d.totalAmount - d.amountPaid) > 0)
+      .map(d => ({
+        id: d.id,
+        label: d.label,
+        remaining: d.totalAmount - d.amountPaid,
+        monthlyAmount: requiredMonthlyRepayment(d),
+        dueDate: d.dueDate,
+      }));
+    return { userId: u.id, name: u.name, debtPayments: monthlyRepayment, debtLines };
   });
 
-  const debtPaymentsByUser = await Promise.all(
-    users.map(async (u) => {
-      const personal = monthlyDebtPayments
-        .filter(p => p.debt.userId === u.id && !p.debt.isShared)
-        .reduce((s, p) => s + p.amount, 0);
-      return { userId: u.id, name: u.name, debtPayments: personal };
-    })
+  const sharedActiveDebts = activeDebts.filter(d => d.isShared);
+  const sharedDebtPaymentsThisMonth = sharedActiveDebts.reduce(
+    (s, d) => s + requiredMonthlyRepayment(d),
+    0
   );
-  const sharedDebtPaymentsThisMonth = monthlyDebtPayments
-    .filter(p => p.debt.isShared)
-    .reduce((s, p) => s + p.amount, 0);
+  const sharedDebtLines = sharedActiveDebts
+    .filter(d => d.dueDate && (d.totalAmount - d.amountPaid) > 0)
+    .map(d => ({
+      id: d.id,
+      label: d.label,
+      remaining: d.totalAmount - d.amountPaid,
+      monthlyAmount: requiredMonthlyRepayment(d),
+      dueDate: d.dueDate,
+    }));
 
   // Wedding goal specifically for income calculator
   const weddingGoal = savingsGoals.find(g => g.section === "wedding");
@@ -105,6 +135,7 @@ export async function GET(req: NextRequest) {
     debtSummary,
     debtPaymentsByUser,
     sharedDebtPaymentsThisMonth,
+    sharedDebtLines,
     weddingGoal: weddingGoal ?? null,
   });
 }
