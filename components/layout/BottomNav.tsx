@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useCurrency } from "@/context/CurrencyContext";
 
 const navItems = [
   { href: "/dashboard", label: "Home", icon: "🏠" },
@@ -13,9 +14,10 @@ const navItems = [
 
 export function BottomNav() {
   const pathname = usePathname();
+  const { currency, toggle } = useCurrency();
 
   return (
-    <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-stone-200 z-30 safe-area-pb">
+    <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-stone-200 z-30">
       <div className="flex">
         {navItems.map((item) => {
           const active = pathname === item.href || pathname.startsWith(item.href + "/");
@@ -32,6 +34,14 @@ export function BottomNav() {
             </Link>
           );
         })}
+        {/* Currency toggle as last tab */}
+        <button
+          onClick={toggle}
+          className="flex-1 flex flex-col items-center gap-0.5 py-2.5 text-xs font-medium text-stone-400 hover:text-teal-700 transition-colors"
+        >
+          <span className="text-lg leading-none">💱</span>
+          <span className={currency === "RWF" ? "text-amber-500 font-bold" : ""}>{currency}</span>
+        </button>
       </div>
     </nav>
   );

@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from "react";
 import toast from "react-hot-toast";
-import { formatCurrency, monthsUntil } from "@/lib/utils";
+import { monthsUntil } from "@/lib/utils";
+import { useCurrency } from "@/context/CurrencyContext";
 import { SharedBudgetSection, BudgetItem } from "@/components/ui/SharedBudgetSection";
 import { PageSpinner } from "@/components/ui/Spinner";
 
@@ -57,6 +58,7 @@ const SECTIONS = [
 ];
 
 export default function WeddingPage() {
+  const { fmt } = useCurrency();
   const [items, setItems] = useState<BudgetItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [targetDate, setTargetDate] = useState("");
@@ -101,7 +103,7 @@ export default function WeddingPage() {
             <div className="flex flex-col sm:flex-row justify-between gap-4">
               <div>
                 <p className="text-teal-200 text-sm">Grand total</p>
-                <p className="text-3xl font-bold mt-0.5">{formatCurrency(grandTotal)}</p>
+                <p className="text-3xl font-bold mt-0.5">{fmt(grandTotal)}</p>
               </div>
               <div className="flex items-end gap-3">
                 <div>
@@ -116,7 +118,7 @@ export default function WeddingPage() {
                 {monthlyRequired && (
                   <div>
                     <p className="text-teal-200 text-xs">Monthly savings needed</p>
-                    <p className="text-xl font-bold">{formatCurrency(parseFloat(monthlyRequired))}</p>
+                    <p className="text-xl font-bold">{fmt(parseFloat(monthlyRequired))}</p>
                   </div>
                 )}
               </div>

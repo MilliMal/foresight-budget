@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
-import { formatCurrency } from "@/lib/utils";
+import { useCurrency } from "@/context/CurrencyContext";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { ProgressBar } from "@/components/ui/ProgressBar";
@@ -31,6 +31,7 @@ const SNOWBALL_TIPS = [
 ];
 
 export default function DebtsPage() {
+  const { fmt } = useCurrency();
   const { data: session } = useSession();
   const [debts, setDebts] = useState<Debt[]>([]);
   const [loading, setLoading] = useState(true);
@@ -101,7 +102,7 @@ export default function DebtsPage() {
     const amt = parseFloat(paymentForm.amount);
     if (isNaN(amt) || amt <= 0) { toast.error("Enter a valid amount"); return; }
     const remaining = paymentModalDebt.totalAmount - paymentModalDebt.amountPaid;
-    if (amt > remaining + 0.01) { toast.error(`Payment exceeds remaining balance of ${formatCurrency(remaining)}`); return; }
+    if (amt > remaining + 0.01) { toast.error(`Payment exceeds remaining balance of ${fmt(remaining)}`); return; }
     setSaving(true);
     try {
       const res = await fetch("/api/debt-payments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ debtId: paymentModalDebt.id, amount: amt, note: paymentForm.note || null, date: paymentForm.date }) });
@@ -151,9 +152,9 @@ export default function DebtsPage() {
       {/* Summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
         <div className="card"><p className="text-stone-500 text-xs">Total debts</p><p className="text-2xl font-bold mt-0.5">{debts.length}</p></div>
-        <div className="card"><p className="text-stone-500 text-xs">Total owed</p><p className="text-2xl font-bold text-red-600 mt-0.5">{formatCurrency(totalOwed)}</p></div>
-        <div className="card"><p className="text-stone-500 text-xs">Paid so far</p><p className="text-2xl font-bold text-teal-700 mt-0.5">{formatCurrency(totalPaid)}</p></div>
-        <div className="card"><p className="text-stone-500 text-xs">Remaining</p><p className="text-2xl font-bold text-stone-900 mt-0.5">{formatCurrency(totalRemaining)}</p></div>
+        <div className="card"><p className="text-stone-500 text-xs">Total owed</p><p className="text-2xl font-bold text-red-600 mt-0.5">{fmt(totalOwed)}</p></div>
+        <div className="card"><p className="text-stone-500 text-xs">Paid so far</p><p className="text-2xl font-bold text-teal-700 mt-0.5">{fmt(totalPaid)}</p></div>
+        <div className="card"><p className="text-stone-500 text-xs">Remaining</p><p className="text-2xl font-bold text-stone-900 mt-0.5">{fmt(totalRemaining)}</p></div>
       </div>
 
       {clearedCount > 0 && (
@@ -208,8 +209,8 @@ export default function DebtsPage() {
                       {debt.notes && <p className="text-xs text-stone-400 mt-0.5 italic">{debt.notes}</p>}
                     </div>
                     <div className="text-right shrink-0">
-                      <p className={`font-bold text-lg ${isCleared ? "text-teal-600" : "text-red-600"}`}>{formatCurrency(remaining > 0 ? remaining : 0)}</p>
-                      <p className="text-xs text-stone-400">of {formatCurrency(debt.totalAmount)}</p>
+                      <p className={`font-bold text-lg ${isCleared ? "text-teal-600" : "text-red-600"}`}>{fmt(remaining > 0 ? remaining : 0)}</p>
+                      <p className="text-xs text-stone-400">of {fmt(debt.totalAmount)}</p>
                     </div>
                   </div>
 
@@ -245,7 +246,7 @@ export default function DebtsPage() {
                             {p.note && <span className="text-stone-400 ml-2">— {p.note}</span>}
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="text-teal-600 font-medium">+{formatCurrency(p.amount)}</span>
+                            <span className="text-teal-600 font-medium">+{fmt(p.amount)}</span>
                             {canEdit && <button onClick={() => setDeletePaymentId(p.id)} className="text-red-400 hover:text-red-600 text-xs transition-colors">✕</button>}
                           </div>
                         </li>
@@ -306,7 +307,7 @@ export default function DebtsPage() {
             <div className="p-3 bg-stone-50 rounded-lg text-sm">
               <div className="flex justify-between">
                 <span className="text-stone-500">Remaining balance</span>
-                <span className="font-semibold text-red-600">{formatCurrency(paymentModalDebt.totalAmount - paymentModalDebt.amountPaid)}</span>
+                <span className="font-semibold text-red-600">{fmt(paymentModalDebt.totalAmount - paymentModalDebt.amountPaid)}</span>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">

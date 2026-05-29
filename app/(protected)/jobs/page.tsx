@@ -3,7 +3,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
-import { formatCurrency, getCurrentMonthYear, monthName } from "@/lib/utils";
+import { getCurrentMonthYear, monthName } from "@/lib/utils";
+import { useCurrency } from "@/context/CurrencyContext";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { PageSpinner } from "@/components/ui/Spinner";
@@ -53,6 +54,7 @@ function emptyForm(): JobForm {
 }
 
 export default function JobsPage() {
+  const { fmt } = useCurrency();
   const { data: session } = useSession();
   const { month, year } = getCurrentMonthYear();
   const [filterMonth, setFilterMonth] = useState(month);
@@ -216,16 +218,16 @@ export default function JobsPage() {
             </div>
             <div className="card">
               <p className="text-stone-500 text-xs">Gross income</p>
-              <p className="text-2xl font-bold mt-0.5 text-stone-900">{formatCurrency(grossTotal)}</p>
+              <p className="text-2xl font-bold mt-0.5 text-stone-900">{fmt(grossTotal)}</p>
             </div>
             <div className="card">
               <p className="text-stone-500 text-xs">Expenses</p>
-              <p className="text-2xl font-bold mt-0.5 text-red-600">{formatCurrency(expensesTotal)}</p>
+              <p className="text-2xl font-bold mt-0.5 text-red-600">{fmt(expensesTotal)}</p>
             </div>
             <div className="card">
               <p className="text-stone-500 text-xs">Net income</p>
               <p className={`text-2xl font-bold mt-0.5 ${netTotal >= 0 ? "text-teal-700" : "text-red-600"}`}>
-                {formatCurrency(netTotal)}
+                {fmt(netTotal)}
               </p>
             </div>
           </div>
@@ -259,9 +261,9 @@ export default function JobsPage() {
                         {job.notes && <p className="text-xs text-stone-400 mt-0.5">{job.notes}</p>}
                       </div>
                       <div className="text-right shrink-0">
-                        <p className="font-bold text-teal-700">{formatCurrency(jobNet)}</p>
+                        <p className="font-bold text-teal-700">{fmt(jobNet)}</p>
                         {jobExpenses > 0 && (
-                          <p className="text-xs text-stone-400">{formatCurrency(job.grossAmount)} − {formatCurrency(jobExpenses)}</p>
+                          <p className="text-xs text-stone-400">{fmt(job.grossAmount)} − {fmt(jobExpenses)}</p>
                         )}
                       </div>
                     </div>
@@ -286,7 +288,7 @@ export default function JobsPage() {
                         {job.expenses.map((exp) => (
                           <li key={exp.id} className="flex justify-between text-sm text-stone-500">
                             <span>{exp.label}</span>
-                            <span className="text-red-500">−{formatCurrency(exp.amount)}</span>
+                            <span className="text-red-500">−{fmt(exp.amount)}</span>
                           </li>
                         ))}
                       </ul>

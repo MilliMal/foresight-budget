@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import toast from "react-hot-toast";
-import { formatCurrency } from "@/lib/utils";
+import { useCurrency } from "@/context/CurrencyContext";
 import { SharedBudgetSection, BudgetItem } from "@/components/ui/SharedBudgetSection";
 import { PageSpinner } from "@/components/ui/Spinner";
 
@@ -18,6 +18,7 @@ const SUGGESTIONS = [
 ];
 
 export default function RelocationPage() {
+  const { fmt } = useCurrency();
   const [items, setItems] = useState<BudgetItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -53,11 +54,11 @@ export default function RelocationPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="card">
               <p className="text-stone-500 text-sm">Setup / one-time costs</p>
-              <p className="text-2xl font-bold text-stone-900 mt-0.5">{formatCurrency(setupTotal)}</p>
+              <p className="text-2xl font-bold text-stone-900 mt-0.5">{fmt(setupTotal)}</p>
             </div>
             <div className="card">
               <p className="text-stone-500 text-sm">Monthly recurring</p>
-              <p className="text-2xl font-bold text-amber-600 mt-0.5">{formatCurrency(monthlyTotal)}/mo</p>
+              <p className="text-2xl font-bold text-amber-600 mt-0.5">{fmt(monthlyTotal)}/mo</p>
             </div>
           </div>
 

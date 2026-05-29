@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from "react";
 import toast from "react-hot-toast";
-import { formatCurrency, monthsUntil } from "@/lib/utils";
+import { monthsUntil } from "@/lib/utils";
+import { useCurrency } from "@/context/CurrencyContext";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { ProgressBar } from "@/components/ui/ProgressBar";
@@ -37,6 +38,7 @@ const SECTION_LABELS: Record<string, string> = {
 };
 
 export default function SavingsCalculatorPage() {
+  const { fmt } = useCurrency();
   const [goals, setGoals] = useState<SavingsGoal[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -170,18 +172,18 @@ export default function SavingsCalculatorPage() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <p className="text-xs opacity-70">Total monthly savings needed</p>
-                  <p className="text-2xl font-bold mt-0.5">{formatCurrency(totalMonthlyRequired)}</p>
+                  <p className="text-2xl font-bold mt-0.5">{fmt(totalMonthlyRequired)}</p>
                 </div>
                 {combinedNet !== null && (
                   <>
                     <div>
                       <p className="text-xs opacity-70">Combined net income (this month)</p>
-                      <p className="text-2xl font-bold mt-0.5">{formatCurrency(combinedNet)}</p>
+                      <p className="text-2xl font-bold mt-0.5">{fmt(combinedNet)}</p>
                     </div>
                     <div>
                       <p className="text-xs opacity-70">{surplus !== null && surplus >= 0 ? "Monthly surplus" : "Shortfall"}</p>
                       <p className="text-2xl font-bold mt-0.5">
-                        {surplus !== null ? formatCurrency(Math.abs(surplus)) : "—"}
+                        {surplus !== null ? fmt(Math.abs(surplus)) : "—"}
                       </p>
                     </div>
                   </>
@@ -219,7 +221,7 @@ export default function SavingsCalculatorPage() {
                   <div className="mb-3">
                     <div className="flex justify-between text-sm mb-1.5">
                       <span className="text-stone-500">Progress</span>
-                      <span className="text-stone-600">{formatCurrency(goal.alreadySaved)} / {formatCurrency(goal.totalTarget)}</span>
+                      <span className="text-stone-600">{fmt(goal.alreadySaved)} / {fmt(goal.totalTarget)}</span>
                     </div>
                     <ProgressBar value={goal.alreadySaved} max={goal.totalTarget} />
                   </div>
@@ -227,7 +229,7 @@ export default function SavingsCalculatorPage() {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                     <div className="bg-stone-50 rounded-lg p-2.5">
                       <p className="text-stone-400 text-xs">Remaining</p>
-                      <p className="font-semibold text-stone-800 mt-0.5">{formatCurrency(Math.max(0, remaining))}</p>
+                      <p className="font-semibold text-stone-800 mt-0.5">{fmt(Math.max(0, remaining))}</p>
                     </div>
                     <div className="bg-stone-50 rounded-lg p-2.5">
                       <p className="text-stone-400 text-xs">Saved so far</p>
@@ -245,7 +247,7 @@ export default function SavingsCalculatorPage() {
                       <div className={`rounded-lg p-2.5 ${monthly === 0 ? "bg-teal-50" : "bg-amber-50"}`}>
                         <p className={`text-xs ${monthly === 0 ? "text-teal-600" : "text-amber-600"}`}>Monthly needed</p>
                         <p className={`font-semibold mt-0.5 ${monthly === 0 ? "text-teal-700" : "text-amber-700"}`}>
-                          {monthly === 0 ? "Goal reached! 🎉" : formatCurrency(monthly)}
+                          {monthly === 0 ? "Goal reached! 🎉" : fmt(monthly)}
                         </p>
                       </div>
                     )}

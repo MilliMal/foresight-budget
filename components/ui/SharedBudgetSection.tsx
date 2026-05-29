@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import toast from "react-hot-toast";
-import { formatCurrency } from "@/lib/utils";
+import { useCurrency } from "@/context/CurrencyContext";
 import { Modal } from "./Modal";
 import { ConfirmDialog } from "./ConfirmDialog";
 
@@ -37,6 +37,7 @@ interface FormState {
 }
 
 export function SharedBudgetSection({ title, section, items, suggestions, onRefresh, collapsed: initialCollapsed = false }: Props) {
+  const { fmt } = useCurrency();
   const [open, setOpen] = useState(!initialCollapsed);
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<BudgetItem | null>(null);
@@ -115,7 +116,7 @@ export function SharedBudgetSection({ title, section, items, suggestions, onRefr
       >
         <h2 className="font-semibold text-stone-800 group-hover:text-teal-700 transition-colors">{title}</h2>
         <div className="flex items-center gap-3">
-          <span className="font-bold text-teal-700">{formatCurrency(total)}</span>
+          <span className="font-bold text-teal-700">{fmt(total)}</span>
           <span className="text-stone-400 text-sm">{open ? "▲" : "▼"}</span>
         </div>
       </button>
@@ -136,7 +137,7 @@ export function SharedBudgetSection({ title, section, items, suggestions, onRefr
                     <span className={`text-xs px-1.5 py-0.5 rounded ${item.type === "MONTHLY" ? "bg-amber-50 text-amber-700" : "bg-stone-100 text-stone-500"}`}>
                       {item.type === "MONTHLY" ? "Monthly" : "One-time"}
                     </span>
-                    <span className="font-medium w-20 text-right">{formatCurrency(item.amount)}</span>
+                    <span className="font-medium w-20 text-right">{fmt(item.amount)}</span>
                     <button onClick={() => openEdit(item)} className="btn-edit">Edit</button>
                     <button onClick={() => setDeleteId(item.id)} className="btn-danger">Delete</button>
                   </div>

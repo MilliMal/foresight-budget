@@ -3,7 +3,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
-import { formatCurrency, getCurrentMonthYear, monthName } from "@/lib/utils";
+import { getCurrentMonthYear, monthName } from "@/lib/utils";
+import { useCurrency } from "@/context/CurrencyContext";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Modal } from "@/components/ui/Modal";
 import { PageSpinner } from "@/components/ui/Spinner";
@@ -32,6 +33,7 @@ interface FormState {
 }
 
 export default function PersonalPage() {
+  const { fmt } = useCurrency();
   const { data: session } = useSession();
   const { month, year } = getCurrentMonthYear();
   const [items, setItems] = useState<BudgetItem[]>([]);
@@ -143,7 +145,7 @@ export default function PersonalPage() {
             <div className="flex justify-between items-center">
               <div>
                 <p className="text-teal-200 text-sm">Total personal expenses</p>
-                <p className="text-3xl font-bold mt-0.5">{formatCurrency(total)}</p>
+                <p className="text-3xl font-bold mt-0.5">{fmt(total)}</p>
               </div>
               <p className="text-teal-300 text-sm">{items.length} item{items.length !== 1 ? "s" : ""}</p>
             </div>
@@ -155,7 +157,7 @@ export default function PersonalPage() {
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold text-stone-700">{cat.label}</h3>
                 <span className="text-sm font-medium text-stone-500">
-                  {formatCurrency(cat.items.reduce((s, i) => s + i.amount, 0))}
+                  {fmt(cat.items.reduce((s, i) => s + i.amount, 0))}
                 </span>
               </div>
               {cat.items.length === 0 ? (
@@ -166,7 +168,7 @@ export default function PersonalPage() {
                     <li key={item.id} className="flex items-center justify-between text-sm">
                       <span className="text-stone-600">{item.label}</span>
                       <div className="flex items-center gap-3">
-                        <span className="font-medium">{formatCurrency(item.amount)}</span>
+                        <span className="font-medium">{fmt(item.amount)}</span>
                         <button onClick={() => openEdit(item)} className="btn-edit">Edit</button>
                         <button onClick={() => setDeleteId(item.id)} className="btn-danger">Delete</button>
                       </div>
@@ -182,7 +184,7 @@ export default function PersonalPage() {
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold text-stone-700">Other</h3>
               <span className="text-sm font-medium text-stone-500">
-                {formatCurrency(otherItems.reduce((s, i) => s + i.amount, 0))}
+                {fmt(otherItems.reduce((s, i) => s + i.amount, 0))}
               </span>
             </div>
             {otherItems.length === 0 ? (
@@ -193,7 +195,7 @@ export default function PersonalPage() {
                   <li key={item.id} className="flex items-center justify-between text-sm">
                     <span className="text-stone-600">{item.label}</span>
                     <div className="flex items-center gap-3">
-                      <span className="font-medium">{formatCurrency(item.amount)}</span>
+                      <span className="font-medium">{fmt(item.amount)}</span>
                       <button onClick={() => openEdit(item)} className="btn-edit">Edit</button>
                       <button onClick={() => setDeleteId(item.id)} className="btn-danger">Delete</button>
                     </div>

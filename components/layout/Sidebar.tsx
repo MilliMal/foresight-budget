@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { useSession } from "next-auth/react";
+import { useCurrency } from "@/context/CurrencyContext";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: "🏠" },
@@ -19,6 +20,7 @@ const navItems = [
 export function Sidebar() {
   const pathname = usePathname();
   const { data: session } = useSession();
+  const { currency, toggle } = useCurrency();
 
   return (
     <aside className="hidden lg:flex flex-col w-64 min-h-screen bg-teal-900 text-white fixed left-0 top-0 z-30">
@@ -53,6 +55,24 @@ export function Sidebar() {
           );
         })}
       </nav>
+
+      {/* Currency toggle */}
+      <div className="px-4 pb-3">
+        <button
+          onClick={toggle}
+          className="w-full flex items-center justify-between bg-teal-800 hover:bg-teal-700 transition-colors rounded-lg px-3 py-2.5"
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-base">💱</span>
+            <span className="text-sm text-teal-200">Currency</span>
+          </div>
+          <div className="flex items-center gap-1 bg-teal-900 rounded-md px-2 py-1">
+            <span className={`text-xs font-bold transition-colors ${currency === "USD" ? "text-white" : "text-teal-500"}`}>USD</span>
+            <span className="text-teal-600 text-xs mx-0.5">|</span>
+            <span className={`text-xs font-bold transition-colors ${currency === "RWF" ? "text-amber-400" : "text-teal-500"}`}>RWF</span>
+          </div>
+        </button>
+      </div>
 
       <div className="p-4 border-t border-teal-800">
         <div className="flex items-center gap-3 mb-3">
