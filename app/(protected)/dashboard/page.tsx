@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
@@ -10,19 +10,23 @@ import { ProgressBar } from "@/components/ui/ProgressBar";
 import { SkeletonCard } from "@/components/ui/SkeletonCard";
 
 const JARS = [
-  { key: "tithe",    label: "Tithe",    pct: 10, color: "bg-purple-500",  desc: "Give back to God / church" },
-  { key: "giving",   label: "Giving",   pct: 10, color: "bg-pink-500",    desc: "Help others, bless people" },
-  { key: "saving",   label: "Saving",   pct: 10, color: "bg-teal-500",    desc: "Emergency fund & short-term" },
-  { key: "invest",   label: "Investing",pct: 20, color: "bg-amber-500",   desc: "Wedding & future goals" },
-  { key: "spending", label: "Spending", pct: 50, color: "bg-stone-400",   desc: "Living expenses" },
+  { key: "tithe",    label: "Tithe",     pct: 10, color: "bg-purple-500", desc: "Give back to God / church" },
+  { key: "giving",   label: "Giving",    pct: 10, color: "bg-pink-500",   desc: "Help others, bless people" },
+  { key: "saving",   label: "Saving",    pct: 10, color: "bg-teal-500",   desc: "Emergency fund & short-term" },
+  { key: "invest",   label: "Investing", pct: 20, color: "bg-amber-500",  desc: "Wedding & future goals" },
+  { key: "spending", label: "Spending",  pct: 50, color: "bg-stone-400",  desc: "Living expenses" },
 ];
 
-interface SavingsGoal { id: string; label: string; section: string; totalTarget: number; alreadySaved: number; targetDate: string | null; }
+interface SavingsGoal {
+  id: string; label: string; section: string;
+  totalTarget: number; alreadySaved: number; targetDate: string | null;
+}
 interface SharedBySection {
   wedding: number; weddingOneTime: number; weddingMonthly: number;
   son: number; sonOneTime: number; sonMonthly: number;
   relocation: number; relocationOneTime: number; relocationMonthly: number;
 }
+interface DebtLine { id: string; label: string; remaining: number; monthlyAmount: number; dueDate: string; }
 interface DashboardData {
   month: number; year: number;
   income: Array<{ userId: string; name: string; gross: number; expenses: number; net: number; jobCount: number }>;
@@ -31,13 +35,16 @@ interface DashboardData {
   sharedBySection: SharedBySection;
   savingsGoals: SavingsGoal[];
   debtSummary: { totalOwed: number; totalPaid: number; count: number; cleared: number };
-  debtPaymentsByUser: Array<{
-    userId: string; name: string; debtPayments: number;
-    debtLines: Array<{ id: string; label: string; remaining: number; monthlyAmount: number; dueDate: string }>;
-  }>;
+  debtPaymentsByUser: Array<{ userId: string; name: string; debtPayments: number; debtLines: DebtLine[] }>;
   sharedDebtPaymentsThisMonth: number;
-  sharedDebtLines: Array<{ id: string; label: string; remaining: number; monthlyAmount: number; dueDate: string }>;
+  sharedDebtLines: DebtLine[];
   weddingGoal: SavingsGoal | null;
+}
+
+function monthsLabel(dueDate: string): string {
+  const d = new Date(dueDate);
+  const now = new Date();
+  return String(Math.round((d.getFullYear() - now.getFullYear()) * 12 + (d.getMonth() - now.getMonth())));
 }
 
 export default function DashboardPage() {
@@ -54,23 +61,26 @@ export default function DashboardPage() {
       const res = await fetch(`/api/dashboard?month=${month}&year=${year}`);
       if (!res.ok) throw new Error("Failed to fetch");
       setData(await res.json());
-    } catch { toast.error("Could not load dashboard"); }
-    finally { setLoading(false); }
+    } catch {
+      toast.error("Could not load dashboard");
+    } finally {
+      setLoading(false);
+    }
   }, [month, year]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const combinedNet = data?.income.reduce((s, u) => s + u.net, 0) ?? 0;
   const combinedPersonal = data?.personal.reduce((s, u) => s + u.total, 0) ?? 0;
-  const combinedDebtPayments = (data?.debtPaymentsByUser.reduce((s, u) => s + u.debtPayments, 0) ?? 0) + (data?.sharedDebtPaymentsThisMonth ?? 0);
+  const combinedDebtPayments =
+    (data?.debtPaymentsByUser.reduce((s, u) => s + u.debtPayments, 0) ?? 0) +
+    (data?.sharedDebtPaymentsThisMonth ?? 0);
   const totalMonthlyExpenses = combinedPersonal + combinedDebtPayments;
 
-  // Wedding income calculator
   const wg = data?.weddingGoal;
   const weddingRemaining = wg ? Math.max(0, wg.totalTarget - wg.alreadySaved) : 0;
   const weddingMonths = wg?.targetDate ? monthsUntil(new Date(wg.targetDate)) : null;
   const weddingMonthlyNeeded = weddingMonths && weddingRemaining > 0 ? weddingRemaining / weddingMonths : null;
-  // 10% saving + 20% investing = 30% of income goes to wedding
   const requiredMonthlyIncome = weddingMonthlyNeeded ? weddingMonthlyNeeded / 0.30 : null;
   const incomeSurplus = requiredMonthlyIncome ? combinedNet - requiredMonthlyIncome : null;
 
@@ -78,13 +88,13 @@ export default function DashboardPage() {
     <div>
       {/* Anchor scripture */}
       <div className="mb-6 rounded-2xl bg-gradient-to-br from-teal-900 via-teal-800 to-teal-700 p-5 text-white relative overflow-hidden">
-        <div className="absolute inset-0 opacity-5 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMjgiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMSIvPjwvc3ZnPg==')]" />
         <div className="relative">
           <p className="text-sm font-medium text-teal-300 mb-1 uppercase tracking-widest">Our Anchor</p>
           <blockquote className="text-lg md:text-xl font-semibold text-white leading-snug mb-2">
-            &ldquo;Now to him who is able to do immeasurably more than all we ask or imagine, according to his power that is at work within us&rdquo;
+            &ldquo;Now to him who is able to do immeasurably more than all we ask or imagine,
+            according to his power that is at work within us&rdquo;
           </blockquote>
-          <p className="text-teal-300 font-medium">â€” Ephesians 3:20</p>
+          <p className="text-teal-300 font-medium">&#8212; Ephesians 3:20</p>
         </div>
       </div>
 
@@ -111,27 +121,44 @@ export default function DashboardPage() {
             {data?.income.map(u => (
               <div key={u.userId} className="card">
                 <div className="flex items-center gap-2 mb-3">
-                  <div className="w-8 h-8 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center font-bold text-sm">{u.name[0]}</div>
+                  <div className="w-8 h-8 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center font-bold text-sm">
+                    {u.name[0]}
+                  </div>
                   <h2 className="font-semibold text-stone-800">{u.name}</h2>
-                  {u.userId === session?.user?.id && <span className="text-xs bg-teal-50 text-teal-700 px-2 py-0.5 rounded-full">You</span>}
+                  {u.userId === session?.user?.id && (
+                    <span className="text-xs bg-teal-50 text-teal-700 px-2 py-0.5 rounded-full">You</span>
+                  )}
                 </div>
                 <dl className="space-y-1.5 text-sm">
-                  <div className="flex justify-between"><dt className="text-stone-500">Jobs</dt><dd className="font-medium">{u.jobCount}</dd></div>
-                  <div className="flex justify-between"><dt className="text-stone-500">Gross income</dt><dd className="font-medium">{fmt(u.gross)}</dd></div>
-                  <div className="flex justify-between"><dt className="text-stone-500">Expenses</dt><dd className="font-medium text-red-600">âˆ’{fmt(u.expenses)}</dd></div>
+                  <div className="flex justify-between">
+                    <dt className="text-stone-500">Jobs</dt>
+                    <dd className="font-medium">{u.jobCount}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-stone-500">Gross income</dt>
+                    <dd className="font-medium">{fmt(u.gross)}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-stone-500">Expenses</dt>
+                    <dd className="font-medium text-red-600">&#8722;{fmt(u.expenses)}</dd>
+                  </div>
                   <div className="flex justify-between pt-1.5 border-t border-stone-100">
                     <dt className="font-semibold text-stone-800">Net income</dt>
-                    <dd className={`font-bold text-base ${u.net >= 0 ? "text-teal-700" : "text-red-600"}`}>{fmt(u.net)}</dd>
+                    <dd className={`font-bold text-base ${u.net >= 0 ? "text-teal-700" : "text-red-600"}`}>
+                      {fmt(u.net)}
+                    </dd>
                   </div>
                 </dl>
               </div>
             ))}
           </div>
 
-          {/* Combined income vs costs overview */}
+          {/* Combined summary */}
           <div className="card bg-gradient-to-r from-teal-700 to-teal-800 text-white">
-            <h2 className="font-semibold text-teal-100 mb-4">Combined Summary â€” {monthName(month)}</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+            <h2 className="font-semibold text-teal-100 mb-4">
+              Combined Summary &#8212; {monthName(month)}
+            </h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
                 <p className="text-teal-300 text-xs">Combined net income</p>
                 <p className="text-2xl font-bold mt-0.5">{fmt(combinedNet)}</p>
@@ -142,7 +169,7 @@ export default function DashboardPage() {
                 <div className="mt-1 space-y-0.5">
                   <p className="text-teal-400 text-xs">Personal: {fmt(combinedPersonal)}</p>
                   {combinedDebtPayments > 0 && (
-                    <p className="text-teal-400 text-xs">Debt payments: {fmt(combinedDebtPayments)}</p>
+                    <p className="text-teal-400 text-xs">Debt repayments: {fmt(combinedDebtPayments)}</p>
                   )}
                 </div>
               </div>
@@ -159,17 +186,17 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Costs breakdown by page/section */}
+          {/* Costs by category */}
           {data?.sharedBySection && (
             <div className="card">
               <h2 className="font-semibold text-stone-800 mb-4">Costs by Category</h2>
               <div className="space-y-3">
 
-                {/* Monthly expenses = personal spending + scheduled debt repayments */}
+                {/* Monthly expenses row */}
                 <div className="rounded-xl border border-stone-100 overflow-hidden">
                   <div className="flex items-center justify-between px-4 py-3 bg-stone-50">
                     <div className="flex items-center gap-2">
-                      <span className="text-base">ðŸ‘¤</span>
+                      <span className="text-base">&#128100;</span>
                       <span className="font-medium text-stone-700">Monthly expenses</span>
                       <span className="text-xs text-stone-400">{monthName(month)}</span>
                     </div>
@@ -182,26 +209,29 @@ export default function DashboardPage() {
                     const userTotal = u.total + debtAmt;
                     return (
                       <div key={u.userId} className="border-t border-stone-100">
-                        {/* Per-person header */}
                         <div className="flex justify-between items-center px-4 pt-3 pb-1 text-sm">
                           <span className="font-semibold text-stone-700">{u.name}</span>
                           <span className="font-bold text-stone-900">{fmt(userTotal)}</span>
                         </div>
-                        {/* Personal spending line */}
                         <div className="flex justify-between items-center px-4 py-1 text-sm">
-                          <button onClick={() => router.push("/personal")} className="flex items-center gap-2 text-stone-500 hover:text-teal-700 transition-colors">
+                          <button
+                            onClick={() => router.push("/personal")}
+                            className="flex items-center gap-2 text-stone-500 hover:text-teal-700 transition-colors"
+                          >
                             <span className="w-1.5 h-1.5 rounded-full bg-stone-300 inline-block" />
                             Personal spending
                           </button>
                           <span className="text-stone-600">{fmt(u.total)}</span>
                         </div>
-                        {/* One line per debt */}
                         {(debtRow?.debtLines ?? []).map(dl => (
                           <div key={dl.id} className="flex justify-between items-center px-4 py-1 text-sm">
-                            <button onClick={() => router.push("/debts")} className="flex items-center gap-2 text-red-500 hover:text-red-700 transition-colors">
+                            <button
+                              onClick={() => router.push("/debts")}
+                              className="flex items-center gap-2 text-red-500 hover:text-red-700 transition-colors"
+                            >
                               <span className="w-1.5 h-1.5 rounded-full bg-red-300 inline-block" />
                               {dl.label}
-                              <span className="text-xs text-stone-400">/ {Math.round((new Date(dl.dueDate).getFullYear() - new Date().getFullYear()) * 12 + (new Date(dl.dueDate).getMonth() - new Date().getMonth()))}mo</span>
+                              <span className="text-xs text-stone-400">/ {monthsLabel(dl.dueDate)}mo</span>
                             </button>
                             <span className="text-red-600 font-medium">{fmt(dl.monthlyAmount)}</span>
                           </div>
@@ -211,7 +241,6 @@ export default function DashboardPage() {
                     );
                   })}
 
-                  {/* Shared debt repayments */}
                   {data.sharedDebtPaymentsThisMonth > 0 && (
                     <div className="border-t border-stone-100 pt-2 pb-2">
                       <div className="flex justify-between items-center px-4 py-1 text-sm font-semibold text-stone-700">
@@ -220,10 +249,13 @@ export default function DashboardPage() {
                       </div>
                       {(data.sharedDebtLines ?? []).map(dl => (
                         <div key={dl.id} className="flex justify-between items-center px-4 py-1 text-sm">
-                          <button onClick={() => router.push("/debts")} className="flex items-center gap-2 text-red-500 hover:text-red-700 transition-colors">
+                          <button
+                            onClick={() => router.push("/debts")}
+                            className="flex items-center gap-2 text-red-500 hover:text-red-700 transition-colors"
+                          >
                             <span className="w-1.5 h-1.5 rounded-full bg-red-300 inline-block" />
                             {dl.label}
-                            <span className="text-xs text-stone-400">/ {Math.round((new Date(dl.dueDate).getFullYear() - new Date().getFullYear()) * 12 + (new Date(dl.dueDate).getMonth() - new Date().getMonth()))}mo</span>
+                            <span className="text-xs text-stone-400">/ {monthsLabel(dl.dueDate)}mo</span>
                           </button>
                           <span className="text-red-600 font-medium">{fmt(dl.monthlyAmount)}</span>
                         </div>
@@ -234,14 +266,17 @@ export default function DashboardPage() {
 
                 {/* Wedding */}
                 <div className="rounded-xl border border-stone-100 overflow-hidden">
-                  <button onClick={() => router.push("/wedding")} className="w-full flex items-center justify-between px-4 py-3 bg-stone-50 hover:bg-stone-100 transition-colors text-left">
+                  <button
+                    onClick={() => router.push("/wedding")}
+                    className="w-full flex items-center justify-between px-4 py-3 bg-stone-50 hover:bg-stone-100 transition-colors text-left"
+                  >
                     <div className="flex items-center gap-2">
-                      <span className="text-base">ðŸ’</span>
+                      <span className="text-base">&#128141;</span>
                       <span className="font-medium text-stone-700">Wedding budget</span>
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="font-bold text-stone-900">{fmt(data.sharedBySection.wedding)}</span>
-                      <span className="text-stone-400 text-xs">â†’</span>
+                      <span className="text-stone-400 text-xs">&#8594;</span>
                     </div>
                   </button>
                   {data.sharedBySection.wedding > 0 && (
@@ -260,14 +295,17 @@ export default function DashboardPage() {
 
                 {/* Son */}
                 <div className="rounded-xl border border-stone-100 overflow-hidden">
-                  <button onClick={() => router.push("/son")} className="w-full flex items-center justify-between px-4 py-3 bg-stone-50 hover:bg-stone-100 transition-colors text-left">
+                  <button
+                    onClick={() => router.push("/son")}
+                    className="w-full flex items-center justify-between px-4 py-3 bg-stone-50 hover:bg-stone-100 transition-colors text-left"
+                  >
                     <div className="flex items-center gap-2">
-                      <span className="text-base">âœˆï¸</span>
+                      <span className="text-base">&#9992;&#65039;</span>
                       <span className="font-medium text-stone-700">Son&apos;s relocation</span>
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="font-bold text-stone-900">{fmt(data.sharedBySection.son)}</span>
-                      <span className="text-stone-400 text-xs">â†’</span>
+                      <span className="text-stone-400 text-xs">&#8594;</span>
                     </div>
                   </button>
                   {data.sharedBySection.son > 0 && (
@@ -286,14 +324,17 @@ export default function DashboardPage() {
 
                 {/* Relocation */}
                 <div className="rounded-xl border border-stone-100 overflow-hidden">
-                  <button onClick={() => router.push("/relocation")} className="w-full flex items-center justify-between px-4 py-3 bg-stone-50 hover:bg-stone-100 transition-colors text-left">
+                  <button
+                    onClick={() => router.push("/relocation")}
+                    className="w-full flex items-center justify-between px-4 py-3 bg-stone-50 hover:bg-stone-100 transition-colors text-left"
+                  >
                     <div className="flex items-center gap-2">
-                      <span className="text-base">ðŸ¡</span>
+                      <span className="text-base">&#127969;</span>
                       <span className="font-medium text-stone-700">New home / relocation</span>
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="font-bold text-stone-900">{fmt(data.sharedBySection.relocation)}</span>
-                      <span className="text-stone-400 text-xs">â†’</span>
+                      <span className="text-stone-400 text-xs">&#8594;</span>
                     </div>
                   </button>
                   {data.sharedBySection.relocation > 0 && (
@@ -310,7 +351,7 @@ export default function DashboardPage() {
                   )}
                 </div>
 
-                {/* Grand total row */}
+                {/* Grand total */}
                 <div className="flex items-center justify-between px-4 py-3 bg-stone-900 rounded-xl text-white">
                   <span className="font-semibold text-sm">Total costs tracked</span>
                   <span className="font-bold text-lg">{fmt(combinedPersonal + (data?.sharedTotal ?? 0))}</span>
@@ -319,20 +360,24 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* 5 Jars allocation */}
+          {/* 5 Jars */}
           {combinedNet > 0 && (
             <div className="card">
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-xl">ðŸ«™</span>
+                <span className="text-xl">&#129337;</span>
                 <h2 className="font-semibold text-stone-800">5 Jars Allocation</h2>
               </div>
-              <p className="text-xs text-stone-400 mb-4">How your {fmt(combinedNet)} combined net income should be divided this month</p>
+              <p className="text-xs text-stone-400 mb-4">
+                How your {fmt(combinedNet)} combined net income should be divided this month
+              </p>
               <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
                 {JARS.map(jar => {
                   const amount = (combinedNet * jar.pct) / 100;
                   return (
                     <div key={jar.key} className="text-center p-3 bg-stone-50 rounded-xl border border-stone-100">
-                      <div className={`w-10 h-10 rounded-full ${jar.color} mx-auto mb-2 flex items-center justify-center text-white font-bold text-sm`}>{jar.pct}%</div>
+                      <div className={`w-10 h-10 rounded-full ${jar.color} mx-auto mb-2 flex items-center justify-center text-white font-bold text-sm`}>
+                        {jar.pct}%
+                      </div>
                       <p className="font-semibold text-stone-800 text-sm">{jar.label}</p>
                       <p className="text-teal-700 font-bold mt-0.5">{fmt(amount)}</p>
                       <p className="text-xs text-stone-400 mt-1 leading-tight">{jar.desc}</p>
@@ -342,20 +387,24 @@ export default function DashboardPage() {
               </div>
               <div className="mt-3 p-3 bg-amber-50 rounded-lg border border-amber-100">
                 <p className="text-xs text-amber-800">
-                  <strong>Wedding strategy:</strong> Your Saving (10%) + Investing (20%) jars = <strong>{fmt(combinedNet * 0.30)}/month</strong> toward your wedding. That&apos;s 30% of every dollar you earn working toward your big day.
+                  <strong>Wedding strategy:</strong> Your Saving (10%) + Investing (20%) jars
+                  = <strong>{fmt(combinedNet * 0.30)}/month</strong> toward your wedding.
+                  That&apos;s 30% of every dollar working toward your big day.
                 </p>
               </div>
             </div>
           )}
 
-          {/* Required monthly income calculator */}
+          {/* Wedding income target */}
           {weddingMonthlyNeeded && (
             <div className={`card border-2 ${incomeSurplus !== null && incomeSurplus >= 0 ? "border-teal-200 bg-teal-50" : "border-amber-200 bg-amber-50"}`}>
               <div className="flex items-center gap-2 mb-3">
-                <span className="text-xl">ðŸ’</span>
+                <span className="text-xl">&#128141;</span>
                 <h2 className="font-semibold text-stone-800">Wedding Income Target</h2>
                 {wg?.targetDate && (
-                  <span className="text-xs text-stone-500 ml-auto">{weddingMonths} month{weddingMonths !== 1 ? "s" : ""} to go</span>
+                  <span className="text-xs text-stone-500 ml-auto">
+                    {weddingMonths} month{weddingMonths !== 1 ? "s" : ""} to go
+                  </span>
                 )}
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
@@ -370,10 +419,14 @@ export default function DashboardPage() {
                 </div>
                 <div className={`rounded-lg p-3 ${incomeSurplus !== null && incomeSurplus >= 0 ? "bg-teal-100" : "bg-red-50"}`}>
                   <p className="text-stone-400 text-xs">Required combined income</p>
-                  <p className={`font-bold text-lg mt-0.5 ${incomeSurplus !== null && incomeSurplus >= 0 ? "text-teal-800" : "text-red-600"}`}>{fmt(requiredMonthlyIncome!)}</p>
+                  <p className={`font-bold text-lg mt-0.5 ${incomeSurplus !== null && incomeSurplus >= 0 ? "text-teal-800" : "text-red-600"}`}>
+                    {fmt(requiredMonthlyIncome!)}
+                  </p>
                   {incomeSurplus !== null && (
                     <p className={`text-xs mt-0.5 font-medium ${incomeSurplus >= 0 ? "text-teal-700" : "text-red-600"}`}>
-                      {incomeSurplus >= 0 ? `âœ“ You're ${fmt(incomeSurplus)} above target` : `â†‘ ${fmt(Math.abs(incomeSurplus))} gap to close`}
+                      {incomeSurplus >= 0
+                        ? `You are ${fmt(incomeSurplus)} above target`
+                        : `${fmt(Math.abs(incomeSurplus))} gap to close`}
                     </p>
                   )}
                 </div>
@@ -403,22 +456,33 @@ export default function DashboardPage() {
 
           {/* Debt snapshot */}
           {data?.debtSummary && data.debtSummary.count > 0 && (
-            <div className="card cursor-pointer hover:border-stone-200 transition-colors border border-stone-100" onClick={() => router.push("/debts")}>
+            <div
+              className="card cursor-pointer hover:border-stone-200 transition-colors border border-stone-100"
+              onClick={() => router.push("/debts")}
+            >
               <div className="flex items-center justify-between mb-3">
                 <h2 className="font-semibold text-stone-800">Debt Snapshot</h2>
-                <span className="text-xs text-teal-700 font-medium">View all â†’</span>
+                <span className="text-xs text-teal-700 font-medium">View all &#8594;</span>
               </div>
               <div className="grid grid-cols-3 gap-3 text-sm">
-                <div><p className="text-stone-400 text-xs">Total owed</p><p className="font-bold text-red-600">{fmt(data.debtSummary.totalOwed)}</p></div>
-                <div><p className="text-stone-400 text-xs">Paid off</p><p className="font-bold text-teal-700">{fmt(data.debtSummary.totalPaid)}</p></div>
-                <div><p className="text-stone-400 text-xs">Cleared</p><p className="font-bold text-stone-900">{data.debtSummary.cleared}/{data.debtSummary.count}</p></div>
+                <div>
+                  <p className="text-stone-400 text-xs">Total owed</p>
+                  <p className="font-bold text-red-600">{fmt(data.debtSummary.totalOwed)}</p>
+                </div>
+                <div>
+                  <p className="text-stone-400 text-xs">Paid off</p>
+                  <p className="font-bold text-teal-700">{fmt(data.debtSummary.totalPaid)}</p>
+                </div>
+                <div>
+                  <p className="text-stone-400 text-xs">Cleared</p>
+                  <p className="font-bold text-stone-900">{data.debtSummary.cleared}/{data.debtSummary.count}</p>
+                </div>
               </div>
               <div className="mt-3">
                 <ProgressBar value={data.debtSummary.totalPaid} max={data.debtSummary.totalOwed} />
               </div>
             </div>
           )}
-
 
         </div>
       )}
